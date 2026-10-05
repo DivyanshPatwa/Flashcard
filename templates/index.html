@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>AI Flashcard Generator</title>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f2f4f7;
+            text-align: center;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #222;
+        }
+
+        textarea {
+            width: 70%;
+            padding: 15px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        select {
+            padding: 10px;
+            margin: 15px;
+            border-radius: 6px;
+        }
+
+        button {
+            padding: 12px 20px;
+            margin: 8px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .generate {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .clear {
+            background: #ddd;
+        }
+
+        .card {
+            background: white;
+            width: 500px;
+            min-height: 220px;
+            margin: 30px auto;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        #question {
+            font-size: 22px;
+            font-weight: bold;
+            margin: 30px;
+        }
+
+        #answer {
+            font-size: 18px;
+            margin: 25px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+
+        .navigation {
+            display: none;
+        }
+
+        #status {
+            margin: 15px;
+            font-weight: bold;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+    <h1>🤖 AI Flashcard Generator</h1>
+
+    <p>Turn your study material into smart flashcards.</p>
+
+    <textarea
+        id="text"
+        rows="8"
+        placeholder="Paste your study material here..."
+    ></textarea>
+
+    <br>
+
+    <label for="count">
+        Number of Flashcards:
+    </label>
+
+    <select id="count">
+
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="15">15</option>
+
+    </select>
+
+    <br>
+
+    <button
+        class="generate"
+        onclick="generateFlashcards()"
+    >
+        ✨ Generate Flashcards
+    </button>
+
+    <button
+        class="clear"
+        onclick="clearAll()"
+    >
+        🗑 Clear
+    </button>
+
+    <div id="status"></div>
+
+
+    <div
+        class="card"
+        id="card"
+        style="display:none;"
+    >
+
+        <h2>
+            Flashcard
+            <span id="cardNumber"></span>
+        </h2>
+
+        <div id="question"></div>
+
+        <div
+            id="answer"
+            style="display:none;"
+        ></div>
+
+        <button onclick="showAnswer()">
+            👁 Show Answer
+        </button>
+
+    </div>
+
+
+    <div class="navigation">
+
+        <button onclick="previousCard()">
+            ⬅ Previous
+        </button>
+
+        <button onclick="nextCard()">
+            Next ➡
+        </button>
+
+    </div>
+
+
+    <script>
+
+        let flashcards = [];
+        let currentCard = 0;
+
+
+        async function generateFlashcards() {
+
+            const text =
+                document.getElementById("text").value;
+
+            const count =
+                document.getElementById("count").value;
+
+            const status =
+                document.getElementById("status");
+
+
+            if (text.trim() === "") {
+
+                status.textContent =
+                    "Please enter some study material.";
+
+                return;
+
+            }
+
+
+            status.textContent =
+                "⏳ Generating flashcards...";
+
+
+            try {
+
+                const response = await fetch(
+                    "/generate",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            text: text,
+                            count: count
+                        })
+                    }
+                );
+
+
+                const data =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data.error ||
+                        "Something went wrong"
+                    );
+
+                }
+
+
+                parseFlashcards(
+                    data.flashcards
+                );
+
+
+                status.textContent =
+                    "✅ Flashcards generated!";
+
+
+                document.getElementById(
+                    "card"
+                ).style.display = "block";
+
+
+                document.querySelector(
+                    ".navigation"
+                ).style.display = "block";
+
+
+                currentCard = 0;
+
+                showCard();
+
+            }
+
+
+            catch (error) {
+
+                status.textContent =
+                    "❌ Error: " + error.message;
+
+                console.error(error);
+
+            }
+
+        }
+
+
+        function parseFlashcards(text) {
+
+            flashcards = [];
+
+            const lines =
+                text.split("\n");
+
+            let question = "";
+            let answer = "";
+
+
+            for (let line of lines) {
+
+                line = line.trim();
+
+
+                if (line.startsWith("Q")) {
+
+                    if (question !== "") {
+
+                        flashcards.push({
+                            question: question,
+                            answer: answer
+                        });
+
+                    }
+
+                    question =
+                        line.substring(
+                            line.indexOf(":") + 1
+                        ).trim();
+
+                    answer = "";
+
+                }
+
+
+                else if (line.startsWith("A")) {
+
+                    answer =
+                        line.substring(
+                            line.indexOf(":") + 1
+                        ).trim();
+
+                }
+
+            }
+
+
+            if (question !== "") {
+
+                flashcards.push({
+                    question: question,
+                    answer: answer
+                });
+
+            }
+
+        }
+
+
+        function showCard() {
+
+            if (flashcards.length === 0) {
+                return;
+            }
+
+
+            const card =
+                flashcards[currentCard];
+
+
+            document.getElementById(
+                "cardNumber"
+            ).textContent =
+                (currentCard + 1) +
+                " / " +
+                flashcards.length;
+
+
+            document.getElementById(
+                "question"
+            ).textContent =
+                card.question;
+
+
+            document.getElementById(
+                "answer"
+            ).textContent =
+                card.answer;
+
+
+            document.getElementById(
+                "answer"
+            ).style.display =
+                "none";
+
+        }
+
+
+        function showAnswer() {
+
+            document.getElementById(
+                "answer"
+            ).style.display =
+                "block";
+
+        }
+
+
+        function nextCard() {
+
+            if (
+                currentCard <
+                flashcards.length - 1
+            ) {
+
+                currentCard++;
+
+                showCard();
+
+            }
+
+        }
+
+
+        function previousCard() {
+
+            if (currentCard > 0) {
+
+                currentCard--;
+
+                showCard();
+
+            }
+
+        }
+
+
+        function clearAll() {
+
+            document.getElementById(
+                "text"
+            ).value = "";
+
+            document.getElementById(
+                "status"
+            ).textContent = "";
+
+            document.getElementById(
+                "card"
+            ).style.display = "none";
+
+            document.querySelector(
+                ".navigation"
+            ).style.display = "none";
+
+            flashcards = [];
+
+            currentCard = 0;
+
+        }
+
+    </script>
+
+</body>
+
+</html>
